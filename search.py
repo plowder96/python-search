@@ -1,16 +1,12 @@
 # This is a CLI tool for keyword search of .md files in the current directory structure.
-# TODOs:
+# TODO:
 # 1) Add option to pass subdirectory as argument - done
-# 2) Track total matches and matches per file - in progress
+# 2) Track total matches and matches per file - done
 # 3) Allow for multiple keyword arguments - done
 # 3) Show context lines
 from pathlib import Path
 import sys
 import subprocess
-
-# print(sys.argv)
-# path = sys.argv[1] # expect path as first argument
-# keyword = sys.argv[2] # expect keyword as secont argument
 
 # parses the command line arguments, detects if argument 1 is an existing path, capture keywords in a list.
 # assumes if path exists in commmand line argument, it will always be argument 1.
@@ -51,32 +47,33 @@ def find_keyword(keywords: list,files_split: list) -> dict:
     return returned_lines_dict
 
 # print the found lines along with match counts to the terminal
-# TODO: Update function to support new matches data structure
-def display_matches(matches: dict) -> None:
-    total_files = len(matches)
+def display_matches(matches: dict[str, dict[str, list[str]]]) -> None:
+    files_found = 0
     total_matches = 0
     for i in matches:
-        split_lines = matches[i].splitlines() # extract each line from the block
-        print(f'{i}:')
-        for j in split_lines:
-            print(j)
-        print(f'{len(split_lines)} matches in {i}\n')
-        total_matches += len(split_lines)
-    print(f'{total_matches} matches found across {total_files} files.')
+        file_matches = 0
+        file_keywords_list = list(matches[i].keys())
+        for j in file_keywords_list:
+            if not matches[i][j]: # no matches for keyword in file
+                continue
+            else: # matches found, track counts and display matches
+                file_matches += 1
+                print(f'\n{i}:')
+                for k in matches[i][j]:
+                    total_matches += 1
+                    print(k)
+        print(f'{file_matches} matches found in {i}\n')
+        files_found += 1
+    print(f'{total_matches} matches found across {files_found} files.')
 
 def main():
     
     check_path = Path(sys.argv[1])
     path,keywords = parse_args(check_path)
-    # print(path)
-    # print(keywords)
     files_concatenated = find_md(path)
     files_split = files_concatenated.splitlines()
-    # print(files_concatenated)
-    # print(files_split)
-    # print(keywords)
     matches = find_keyword(keywords,files_split)
-    # display_matches(matches)
+    display_matches(matches)
 
 if __name__ == '__main__':
     main()
