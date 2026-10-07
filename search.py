@@ -4,11 +4,18 @@
 # 2) Track total matches and matches per file - done
 # 3) Allow for multiple keyword arguments - done
 # 3) Show context lines - done
-# 4) Update count convention - In progress
+# 4) Update count convention - done
 #       Keywords are tracked per word per file.
+# 5) And/Or functionality - open
+# 6) Replace grep subprocess with Python - open
+# 7) Argparse - open
+# 8) Ranking - open
+# 9) Markdown-aware search
+
 from pathlib import Path
 import sys
 import subprocess
+import re
 
 # parses the command line arguments, detects if argument 1 is an existing path, capture keywords in a list.
 # assumes if path exists in commmand line argument, it will always be argument 1.
@@ -53,41 +60,47 @@ def display_matches(matches: dict[str, dict[str, list[str]]]) -> None:
     # Counts for all files
     files_found = 0
     total_lines_returned = 0
-
     for i in matches:
-        # Counts per files
-        file_matches = 0
-        context_lines = 0
-        file_lines_returned = 0
-        matched_lines = 0
-        files_found += 1
+        # Counts per file
+        file_has_match = False
         file_keywords_list = list(matches[i].keys())
+        # dict for tracking keyword match counts
         keyword_match_count = {}
+        
         for j in file_keywords_list:
+            
+            # Counts per keyword
+            lines_context = 0
+            
             if not matches[i][j]: # no matches for keyword in file
                 continue
             else: # matches found, track counts and display matches
-                keyword_match_count[j] = 0
-                print(f'---------------------------------------------------------------\n{i}:')
+                keyword_match_count[j] = 0 # initialize keyword count
+                file_has_match = True
+                print(f'----------------------\n{i}:')
+                
                 for k in matches[i][j]:
-                    print(k) # print all lines returned
-                    if k == '--': # skip delimiter lines added by 'grep'
+                    
+                    if k == '--': # skip delimiter lines added by 'grep' but still print line
+                        print(k)
                         continue
-                    keyword_match_count[j] += 1
-                    print(keyword_match_count)
+
                     total_lines_returned += 1 # initialized before loop structure
                     
-                    if j.lower() in k.lower():
-                        file_matches += 1 # initialized at the start of next outermost loop, only increments when line actually contains keyword
-                        file_lines_returned += 1
+                    if re.search(r'^\d+-',k): # search for regex of grep-returned context line: ##-
+                        lines_context += 1
+                        print(f'{k}(context)')
+
                     else:
-                        context_lines += 1
-                        file_lines_returned += 1
-        matched_lines = file_lines_returned - context_lines
-        # files_found += 1
+                        keyword_match_count[j] += 1 # add to keyword count
+                        print(k)
 
-        print(f'{context_lines} context lines returned\n{matched_lines} match lines returned\n')
-
+            print(f'----------------------\n----------------------\nCounts for file: {i}\n{keyword_match_count[j]} matches found for keyword: {j}')
+            print(f'{lines_context} context lines returned\n---------------------------------------------------------------')
+    
+        if file_has_match: # increment keyword found in file
+            files_found += 1
+    
     print(f'{total_lines_returned} lines returned across {files_found} files')
 
 def main():
@@ -96,7 +109,6 @@ def main():
     files_concatenated = find_md(path)
     files_split = files_concatenated.splitlines()
     matches = find_keyword(keywords,files_split)
-    # print(matches)
     display_matches(matches)
 
 if __name__ == '__main__':
