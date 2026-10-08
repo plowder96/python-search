@@ -6,7 +6,7 @@
 # 3) Show context lines - done
 # 4) Update count convention - done
 #       Keywords are tracked per word per file.
-# 5) And/Or functionality - open
+# 5) And/Or functionality at the line level - open
 # 6) Replace grep subprocess with Python - open
 # 7) Argparse - open
 # 8) Ranking - open
@@ -17,24 +17,48 @@ import sys
 import subprocess
 import re
 
+# If user passes a mode option, this function determines if mode value is valid and returns.
+def determine_mode(option: str) -> str:
+    option_map = [
+        'and'
+    ]
+    if option in option_map:
+        return option
+    else:
+        print(f'unknown option detected - {option} - ending script.')
+        sys.exit(1)
+
 # parses the command line arguments, detects if argument 1 is an existing path, capture keywords in a list.
 # assumes if path exists in commmand line argument, it will always be argument 1.
-def parse_args() -> tuple[str,list]:
-    check_path = Path(sys.argv[1])
-    if check_path.is_dir():
-        path = check_path
+# TODO: Build logic to determine and return a 'search mode' - and/or at the line level are only modes in current scope.
+def parse_args() -> tuple[str,list,str]:
+    check_path_mode = Path(sys.argv[1])
+    if check_path_mode.is_dir(): # directory passed - set path with it and default mode to 'or'
+        print(f'directory found: {check_path_mode}')
+        path = check_path_mode
         start_indice = 2
-    else:
+        mode = 'or'
+    elif re.search('^--',str(check_path_mode)): # mode option passed - check value and set mode, default path to './' if path not found in arguments
+        print('mode option found!')
+        path = './'
+        start_indice = 2
+        mode = determine_mode(str(check_path_mode)[2:])
+        if Path(sys.argv[2]).is_dir(): # path was passed after mode
+            print('path found as well!')
+            path = Path(sys.argv[2])
+            start_indice = 3
+    else: # only keyword(s) passed - default path to './' and mode to 'or'
+        print('No directory or mode option passed - default path to \'./\'')
         path = './'
         start_indice = 1
+        mode = 'or'
 
     keywords = []
     for i in range(start_indice,len(sys.argv)):
         keyword = sys.argv[i]
         keywords.append(keyword)
 
-    return path,keywords
-
+    return path,keywords,mode
 
 def find_md(path: str) -> str:
     # call bash command to open directory contents,
@@ -43,6 +67,7 @@ def find_md(path: str) -> str:
     return output.stdout
 
 # search every line of the find command results for the keyword
+# TODO: Refactor to accept a 'search mode' that dictates how keywords are found - and/or at the line level are only modes in current scope.
 def find_keyword(keywords: list,files_split: list) -> dict:
 
     returned_lines_dict = {}
@@ -106,10 +131,10 @@ def display_matches(matches: dict[str, dict[str, list[str]]]) -> None:
 def main():
     
     path,keywords = parse_args()
-    files_concatenated = find_md(path)
-    files_split = files_concatenated.splitlines()
-    matches = find_keyword(keywords,files_split)
-    display_matches(matches)
+    # files_concatenated = find_md(path)
+    # files_split = files_concatenated.splitlines()
+    # matches = find_keyword(keywords,files_split)
+    # display_matches(matches)
 
 if __name__ == '__main__':
     main()
