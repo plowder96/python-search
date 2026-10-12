@@ -7,6 +7,7 @@
 # 4) Update count convention - done
 #       Keywords are tracked per word per file.
 # 5) And/Or functionality at the line level - open
+#   AND/OR implemented through split in find_keyword() function. Currently, data structures returned by find_keyword() are different depending on mode logic. New function called display_and_matches() created to display matches and counts. Original display_matches() function now called display_or_matches(). Open question is whether or not to refactor find_keyword() to return the same data structure regardless of mode.
 # 6) Replace grep subprocess with Python - open
 # 7) Argparse - open
 # 8) Ranking - open
@@ -73,7 +74,7 @@ def find_keyword(keywords: list,files_split: list,mode: str) -> dict:
     returned_lines_dict = {}
     if mode == 'and': # AND logic hit
         for i in files_split:
-            returned_lines_dict[i] = ''
+            returned_lines_dict[i] = None
             previous = subprocess.Popen(['grep','-n','-i',keywords[0],i],stdout=subprocess.PIPE)
             start_indice = 1
             
@@ -83,12 +84,9 @@ def find_keyword(keywords: list,files_split: list,mode: str) -> dict:
             
             final_stdout = previous.communicate()
             if final_stdout[0]: # output found, convert tuple to list of matches
-                print('output found!')
-                print(f'final_stdout: {final_stdout[0].decode()}')
-
                 match_list = final_stdout[0].decode().splitlines()
-
-                returned_lines_dict[i] = match_list
+                returned_lines_dict[i] = {tuple(keywords): None}
+                returned_lines_dict[i][tuple(keywords)] = match_list
 
             previous.stdout.close()
     else: # OR logic hit
@@ -101,7 +99,7 @@ def find_keyword(keywords: list,files_split: list,mode: str) -> dict:
 
     return returned_lines_dict
 
-# print the found lines along with match counts to the terminal
+# print the found lines along with match counts to the terminal - OR logic
 def display_or_matches(matches: dict[str, dict[str, list[str]]]) -> None:
     # Counts for all files
     files_found = 0
@@ -147,10 +145,26 @@ def display_or_matches(matches: dict[str, dict[str, list[str]]]) -> None:
         if file_has_match: # increment keyword found in file
             files_found += 1
     
-    print(f'{total_lines_returned} lines returned across {files_found} files')
+    print(f'{total_lines_returned} lines returned across {files_found} file(s)')
 
+# print the found lines along with match counts to the terminal - AND logic
 def display_and_matches(matches: dict[str,list[str]]) -> None:
-    None
+    files_found = 0
+    total_lines_returned = 0
+    for i in matches:
+        if matches[i]:
+            print(f'----------------------\n{i}:')
+            lines_matches = 0
+            files_found += 1
+            for j in matches[i]:
+                keywords = ', '.join(j)
+                # print(matches[i][j])
+                for k in matches[i][j]:
+                    lines_matches += 1
+                    total_lines_returned += 1
+                    print(k)
+            print(f'----------------------\n----------------------\nCounts for file: {i}\n{lines_matches} matches found for keywords: {keywords}\n---------------------------------------------------------------')
+    print(f'{total_lines_returned} lines returned across {files_found} file(s).')
 
 def main():
     
@@ -158,7 +172,6 @@ def main():
     files_concatenated = find_md(path)
     files_split = files_concatenated.splitlines()
     matches = find_keyword(keywords,files_split,mode)
-    print(matches)
     if mode == 'or':
         display_or_matches(matches)
     elif mode == 'and':
