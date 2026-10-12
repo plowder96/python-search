@@ -20,9 +20,10 @@ import re
 # If user passes a mode option, this function determines if mode value is valid and returns.
 def determine_mode(option: str) -> str:
     option_map = [
-        'and'
+        'and',
+        'or'
     ]
-    if option in option_map:
+    if option.lower() in option_map:
         return option
     else:
         print(f'unknown option detected - {option} - ending script.')
@@ -66,22 +67,42 @@ def find_md(path: str) -> str:
     output = subprocess.run(['find',path,'-type','f','-name','*.md'],capture_output = True, text = True)
     return output.stdout
 
-# search every line of the find command results for the keyword
-# TODO: Refactor to accept a 'search mode' that dictates how keywords are found - and/or at the line level are only modes in current scope.
-def find_keyword(keywords: list,files_split: list) -> dict:
+# search every line of the find command results for the keyword(s)
+def find_keyword(keywords: list,files_split: list,mode: str) -> dict:
 
     returned_lines_dict = {}
-    for i in files_split:
-        returned_lines_dict[i] = {} # populate dictionary with top-level filename keys
+    if mode == 'and': # AND logic hit
+        for i in files_split:
+            returned_lines_dict[i] = ''
+            previous = subprocess.Popen(['grep','-n','-i',keywords[0],i],stdout=subprocess.PIPE)
+            start_indice = 1
+            
+            for j in range(start_indice,len(keywords)):
+                current = subprocess.Popen(['grep','-i',keywords[j]],stdin=previous.stdout,stdout=subprocess.PIPE)
+                previous = current
+            
+            final_stdout = previous.communicate()
+            if final_stdout[0]: # output found, convert tuple to list of matches
+                print('output found!')
+                print(f'final_stdout: {final_stdout[0].decode()}')
 
-        for j in keywords:
-            search_response = subprocess.run(['grep','-C1','-n','-i',j,i],capture_output = True, text = True) # get keyword matches
-            returned_lines_dict[i][j] = search_response.stdout.splitlines() # add list of keyword matches to sub-dictionary
-    
+                match_list = final_stdout[0].decode().splitlines()
+
+                returned_lines_dict[i] = match_list
+
+            previous.stdout.close()
+    else: # OR logic hit
+        for i in files_split:
+            returned_lines_dict[i] = {} # populate dictionary with top-level filename keys
+
+            for j in keywords:
+                search_response = subprocess.run(['grep','-C1','-n','-i',j,i],capture_output = True, text = True) # get keyword matches
+                returned_lines_dict[i][j] = search_response.stdout.splitlines() # add list of keyword matches to sub-dictionary
+
     return returned_lines_dict
 
 # print the found lines along with match counts to the terminal
-def display_matches(matches: dict[str, dict[str, list[str]]]) -> None:
+def display_or_matches(matches: dict[str, dict[str, list[str]]]) -> None:
     # Counts for all files
     files_found = 0
     total_lines_returned = 0
@@ -128,13 +149,20 @@ def display_matches(matches: dict[str, dict[str, list[str]]]) -> None:
     
     print(f'{total_lines_returned} lines returned across {files_found} files')
 
+def display_and_matches(matches: dict[str,list[str]]) -> None:
+    None
+
 def main():
     
-    path,keywords = parse_args()
-    # files_concatenated = find_md(path)
-    # files_split = files_concatenated.splitlines()
-    # matches = find_keyword(keywords,files_split)
-    # display_matches(matches)
+    path,keywords,mode = parse_args()
+    files_concatenated = find_md(path)
+    files_split = files_concatenated.splitlines()
+    matches = find_keyword(keywords,files_split,mode)
+    print(matches)
+    if mode == 'or':
+        display_or_matches(matches)
+    elif mode == 'and':
+        display_and_matches(matches)
 
 if __name__ == '__main__':
     main()
