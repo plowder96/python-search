@@ -32,7 +32,6 @@ def determine_mode(option: str) -> str:
 
 # parses the command line arguments, detects if argument 1 is an existing path, capture keywords in a list.
 # assumes if path exists in commmand line argument, it will always be argument 1.
-# TODO: Build logic to determine and return a 'search mode' - and/or at the line level are only modes in current scope.
 def parse_args() -> tuple[str,list,str]:
     check_path_mode = Path(sys.argv[1])
     if check_path_mode.is_dir(): # directory passed - set path with it and default mode to 'or'
@@ -76,9 +75,14 @@ def find_keyword(keywords: list,files_split: list,mode: str) -> dict:
         for i in files_split:
             returned_lines_dict[i] = None
             search_response = subprocess.run(['grep','-n','-i',keywords[0],i],capture_output = True,text = True).stdout
-            if all(key in search_response for key in keywords):
-                returned_lines_dict[i] = {tuple(keywords): search_response.splitlines()}
-
+            if search_response: # search_response not empty, split line numbers from returned line before search for next keyword(s)
+                search_response_split = search_response.splitlines()
+                line_list = []
+                for j in search_response_split:
+                    line_number,line = j.split(':',1)
+                    if all(key.lower() in line.lower() for key in keywords):
+                        line_list.append(j)
+                returned_lines_dict[i] = {tuple(keywords): line_list}
     else: # OR logic hit
         for i in files_split:
             returned_lines_dict[i] = {} # populate dictionary with top-level filename keys
