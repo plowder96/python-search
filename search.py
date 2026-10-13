@@ -6,9 +6,9 @@
 # 3) Show context lines - done
 # 4) Update count convention - done
 #       Keywords are tracked per word per file.
-# 5) And/Or functionality at the line level - in progress
-#   Remaining gap in scenario where subsequent keywords match line numbers from first grep response
-# 6) Replace grep subprocess with Python - open
+# 5) And/Or functionality at the line level - done
+# 6) Replace grep subprocess with Python - in progress
+#   Python conversion partially completed for AND logic within find_keyword(). OR branch in find_keyword() still open.
 # 7) Argparse - open
 # 8) Ranking - open
 # 9) Markdown-aware search
@@ -75,19 +75,10 @@ def find_keyword(keywords: list,files_split: list,mode: str) -> dict:
     if mode == 'and': # AND logic hit
         for i in files_split:
             returned_lines_dict[i] = None
-            previous = subprocess.Popen(['grep','-n','-i',keywords[0],i],stdout=subprocess.PIPE)
-            start_indice = 1
-            for j in range(start_indice,len(keywords)):
-                current = subprocess.Popen(['grep','-i',keywords[j]],stdin=previous.stdout,stdout=subprocess.PIPE)
-                previous = current
-            
-            final_stdout = previous.communicate()
-            if final_stdout[0]: # output found, convert tuple to list of matches
-                match_list = final_stdout[0].decode().splitlines()
-                returned_lines_dict[i] = {tuple(keywords): None}
-                returned_lines_dict[i][tuple(keywords)] = match_list
+            search_response = subprocess.run(['grep','-n','-i',keywords[0],i],capture_output = True,text = True).stdout
+            if all(key in search_response for key in keywords):
+                returned_lines_dict[i] = {tuple(keywords): search_response.splitlines()}
 
-            previous.stdout.close()
     else: # OR logic hit
         for i in files_split:
             returned_lines_dict[i] = {} # populate dictionary with top-level filename keys
@@ -147,7 +138,7 @@ def display_or_matches(matches: dict[str, dict[str, list[str]]]) -> None:
     print(f'{total_lines_returned} lines returned across {files_found} file(s)')
 
 # print the found lines along with match counts to the terminal - AND logic
-def display_and_matches(matches: dict[str,list[str]]) -> None:
+def display_and_matches(matches: dict[str, dict[tuple,list[str]]]) -> None:
     files_found = 0
     total_lines_returned = 0
     for i in matches:
