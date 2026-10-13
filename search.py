@@ -6,8 +6,8 @@
 # 3) Show context lines - done
 # 4) Update count convention - done
 #       Keywords are tracked per word per file.
-# 5) And/Or functionality at the line level - open
-#   AND/OR implemented through split in find_keyword() function. Currently, data structures returned by find_keyword() are different depending on mode logic. New function called display_and_matches() created to display matches and counts. Original display_matches() function now called display_or_matches(). Open question is whether or not to refactor find_keyword() to return the same data structure regardless of mode.
+# 5) And/Or functionality at the line level - in progress
+#   Remaining gap in scenario where subsequent keywords match line numbers from first grep response
 # 6) Replace grep subprocess with Python - open
 # 7) Argparse - open
 # 8) Ranking - open
@@ -77,7 +77,6 @@ def find_keyword(keywords: list,files_split: list,mode: str) -> dict:
             returned_lines_dict[i] = None
             previous = subprocess.Popen(['grep','-n','-i',keywords[0],i],stdout=subprocess.PIPE)
             start_indice = 1
-            
             for j in range(start_indice,len(keywords)):
                 current = subprocess.Popen(['grep','-i',keywords[j]],stdin=previous.stdout,stdout=subprocess.PIPE)
                 previous = current
@@ -152,13 +151,12 @@ def display_and_matches(matches: dict[str,list[str]]) -> None:
     files_found = 0
     total_lines_returned = 0
     for i in matches:
-        if matches[i]:
+        if matches[i]: # keyword returned matches
             print(f'----------------------\n{i}:')
             lines_matches = 0
             files_found += 1
             for j in matches[i]:
                 keywords = ', '.join(j)
-                # print(matches[i][j])
                 for k in matches[i][j]:
                     lines_matches += 1
                     total_lines_returned += 1
